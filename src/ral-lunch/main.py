@@ -1,8 +1,6 @@
 import httpx
-from bs4 import BeautifulSoup, ResultSet, Tag, SoupStrainer
-from PyPDF2 import PdfReader
+from bs4 import BeautifulSoup, SoupStrainer
 import io
-import re
 from pathlib import Path
 import tabula
 import pandas as pd
