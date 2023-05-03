@@ -105,7 +105,7 @@ for day in DAYS:
             + get_values_from_table(day, "Veg Option")
         ),
         "Special": "".join(get_values_from_table(day, "Special")),
-        "Sides": ",\n\t".join(get_values_from_table(day, "Sides")),
+        "Sides": get_values_from_table(day, "Sides"),
         "Deli": ",\n\t".join(get_values_from_table(day, "Hot Deli£4.25")),
         "Dessert": "".join(get_values_from_table(day, "Hot Dessert£1.45")),
         "Potato": get_values_from_table(day, "Jacket Potato"),
