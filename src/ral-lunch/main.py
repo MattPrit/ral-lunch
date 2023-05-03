@@ -6,7 +6,7 @@ import tabula
 import pandas as pd
 from functools import cache
 from datetime import date
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 PAGE_URL = "https://www.ralcatering.com/menu"
 LOCAL_PDF_FILE = Path(__file__).parent / "menu.pdf"
@@ -85,7 +85,7 @@ def get_values_from_table(day: str, type: str) -> list[str]:
 
 
 for day in DAYS:
-    data[day] = {
+    data[day.upper()] = {
         "Soup": {
             "Vegetable": ",\n\t".join(
                 get_values_from_table(day, "VegetableSoup £1.05")
@@ -113,6 +113,14 @@ for day in DAYS:
     }
 
 app = FastAPI()
-app.get("/")
+
+@app.get("/menu")
 def get_menu():
     return data
+
+@app.get("/menu/{day}")
+def get_days_menu(day: str):
+    menu = data.get(day.upper())
+    if menu is None:
+        raise HTTPException(404, f"Day '{day}' not found")
+    return menu
