@@ -7,6 +7,7 @@ import pandas as pd
 from functools import cache
 from datetime import date
 from fastapi import FastAPI, HTTPException
+from typing import Optional
 
 PAGE_URL = "https://www.ralcatering.com/menu"
 LOCAL_PDF_FILE = Path(__file__).parent / "menu.pdf"
@@ -57,42 +58,21 @@ table["Type"][[13, 14, 15, 16]] = "Jacket Potato"
 table["Type"][[18, 19, 20]] = "Snack"
 for col in table.columns:
     table[col] = table[col].map(lambda x: x.replace("\r", ""))
-DAY = "Wednesday"
-DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-TYPE_TO_KEY = {
-    "Vegetable Soup (£1.05)": "VegetableSoup £1.05",
-    "Meat Soup (£1.35)": "Meat Soup£1.35",
-    "Main Course (£4.35)": "ClassicMain Course£4.35",
-    "Vegitarian Main Course (£3.55)": "VegetarianMain Course£3.55",
-    "Theatre (£5.25)": "Theatre£5.25",
-    "Veg Option": "Veg Option",
-    "Special": "Special",
-    "Sides": "Sides",
-    "Hot Deli (£4.25)": "Hot Deli£4.25",
-    "Hot Dessert (£1.45)": "Hot Dessert£1.45",
-    "Jacket Potato": "Jacket Potato",
-    "Snack": "Snack",
-}
-# for t, k in TYPE_TO_KEY.items():
-#     print(t.upper())
-#     print("\t" + ",\n\t".join(list(table[DAY][table["Type"] == k].values)))
-
-data = {}
 
 
 def get_values_from_table(day: str, type: str) -> list[str]:
     return list(table[day][table["Type"] == type].values)
 
 
-for day in DAYS:
-    data[day.upper()] = {
-        "Soup": {
+data = {
+    day.upper(): {
+        "SOUP": {
             "Vegetable": ",\n\t".join(
                 get_values_from_table(day, "VegetableSoup £1.05")
             ),
             "Meat": ",\n\t".join(get_values_from_table(day, "Meat Soup£1.35")),
         },
-        "Main": {
+        "MAIN": {
             "Regular": ",\n\t".join(
                 get_values_from_table(day, "ClassicMain Course£4.35")
             ),
@@ -100,27 +80,47 @@ for day in DAYS:
                 get_values_from_table(day, "VegetarianMain Course£3.55")
             ),
         },
-        "Theatre": ",\n\t".join(
+        "THEATRE": ",\n\t".join(
             get_values_from_table(day, "Theatre£5.25")
             + get_values_from_table(day, "Veg Option")
         ),
-        "Special": "".join(get_values_from_table(day, "Special")),
-        "Sides": get_values_from_table(day, "Sides"),
-        "Deli": ",\n\t".join(get_values_from_table(day, "Hot Deli£4.25")),
-        "Dessert": "".join(get_values_from_table(day, "Hot Dessert£1.45")),
-        "Potato": get_values_from_table(day, "Jacket Potato"),
-        "Snack": get_values_from_table(day, "Snack"),
+        "SPECIAL": "".join(get_values_from_table(day, "Special")),
+        "SIDES": get_values_from_table(day, "Sides"),
+        "DELI": ",\n\t".join(get_values_from_table(day, "Hot Deli£4.25")),
+        "DESSERT": "".join(get_values_from_table(day, "Hot Dessert£1.45")),
+        "POTATO": get_values_from_table(day, "Jacket Potato"),
+        "SNACK": get_values_from_table(day, "Snack"),
     }
+    for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+}
 
 app = FastAPI()
 
-@app.get("/menu")
-def get_menu():
-    return data
 
-@app.get("/menu/{day}")
+@app.get("/menu")
+def get_menu(day: Optional[str] = None, meal_type: Optional[str] = None):
+    if day is None and meal_type is None:
+        return data
+    if day is not None:
+        if day.upper() not in data.keys():
+            raise HTTPException(404, f"Day '{day}' not recognised'")
+        if meal_type is None:
+            return data[day.upper()]
+        if meal_type.upper() not in data[day.upper()].keys():
+            raise HTTPException(404, f"Meal type '{meal_type}' not recognised'")
+        return data[day.upper()][meal_type.upper()]
+    if meal_type.upper() not in data['MONDAY'].keys():
+        raise HTTPException(404, f"Meal type '{meal_type}' not recognised'")
+    return {
+        d: data[d][meal_type.upper()] for d in data.keys()
+    }
+
+
+@app.get("/menu/day/{day}")
 def get_days_menu(day: str):
-    menu = data.get(day.upper())
-    if menu is None:
-        raise HTTPException(404, f"Day '{day}' not found")
-    return menu
+    return get_menu(day=day)
+
+
+@app.get("/menu/meal_type/{meal_type}")
+def get_days_menu(meal_type: str):
+    return get_menu(meal_type=meal_type)
