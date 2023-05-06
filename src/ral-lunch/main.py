@@ -1,17 +1,19 @@
-import httpx
-from bs4 import BeautifulSoup, SoupStrainer
 import io
-from pathlib import Path
-import tabula
-import pandas as pd
-from functools import cache
 from datetime import date
-from fastapi import FastAPI, HTTPException, Depends
+from functools import cache
+from pathlib import Path
 from typing import Optional
 
+import httpx
+import tabula
+from bs4 import BeautifulSoup, SoupStrainer
+from fastapi import Depends, FastAPI, HTTPException
+
+from .schemas import DayMenu, MealTypeMenu, MealWithVegOption, Menu, SoupOption
 
 PAGE_URL = "https://www.ralcatering.com/menu"
 LOCAL_PDF_FILE = Path(__file__).parent / "menu.pdf"
+
 
 def _get_current_week_num():
     return date.today().isocalendar()[1]
@@ -90,10 +92,10 @@ def _get_menu_data(week_num: int):
                     _get_values_from_table(day, "VegetarianMain Course£3.55")
                 ),
             },
-            "THEATRE": ",\n\t".join(
-                _get_values_from_table(day, "Theatre£5.25")
-                + _get_values_from_table(day, "Veg Option")
-            ),
+            "THEATRE": {
+                "Regular": ",\n\t".join(_get_values_from_table(day, "Theatre£5.25")),
+                "Vegetarian": ",\n\t".join(_get_values_from_table(day, "Veg Option")),
+            },
             "SPECIAL": "".join(_get_values_from_table(day, "Special")),
             "SIDES": _get_values_from_table(day, "Sides"),
             "DELI": ",\n\t".join(_get_values_from_table(day, "Hot Deli£4.25")),
@@ -118,7 +120,7 @@ def get_menu(
     day: Optional[str] = None,
     meal_type: Optional[str] = None,
     menu_data: dict = Depends(get_menu_data),
-):
+) -> Menu | DayMenu | MealTypeMenu | MealWithVegOption | SoupOption | list[str] | str:
     if day is None and meal_type is None:
         return menu_data
     if day is not None:
@@ -135,10 +137,12 @@ def get_menu(
 
 
 @app.get("/menu/day/{day}")
-def get_days_menu(day: str):
-    return get_menu(day=day)
+def get_days_menu(day: str, menu_data: dict = Depends(get_menu_data)) -> DayMenu:
+    return get_menu(day=day, menu_data=menu_data)
 
 
 @app.get("/menu/meal_type/{meal_type}")
-def get_days_menu(meal_type: str):
-    return get_menu(meal_type=meal_type)
+def get_menu_for_meal_type(
+    meal_type: str, menu_data: dict = Depends(get_menu_data)
+) -> MealTypeMenu:
+    return get_menu(meal_type=meal_type, menu_data=menu_data)
